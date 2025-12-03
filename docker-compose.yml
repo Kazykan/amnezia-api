@@ -8,3 +8,12 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock # чтобы API мог дергать docker exec
     ports:
       - "8000:8000"
+    environment:
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ALGORITHM=${JWT_ALGORITHM}
+      - JWT_ACCESS_TTL=${JWT_ACCESS_TTL}
+      - JWT_REFRESH_TTL=${JWT_REFRESH_TTL}
+      - JWT_ISSUER=${JWT_ISSUER}
+      - JWT_AUDIENCE=${JWT_AUDIENCE}
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
