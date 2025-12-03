@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from utils.jwt import create_access_token, create_refresh_token, decode_token
 from core.config import settings
 
-router = APIRouter(prefix="/api/auth", tags=["auth"])
+router = APIRouter(tags=["auth"])
 
 
 class RefreshRequest(BaseModel):
