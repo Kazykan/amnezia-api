@@ -6,6 +6,10 @@ from core.config import settings
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
 class LoginRequest(BaseModel):
     username: str
     password: str
@@ -31,8 +35,8 @@ def login(req: LoginRequest):
 
 
 @router.post("/refresh", response_model=TokenPair)
-def refresh(refresh_token: str):
-    payload = decode_token(refresh_token)
+def refresh(req: RefreshRequest):
+    payload = decode_token(req.refresh_token)
     if payload.get("type") != "refresh":
         raise HTTPException(status_code=401, detail="Неверный тип токена")
     access = create_access_token(sub=payload["sub"], roles=payload.get("roles", []))
