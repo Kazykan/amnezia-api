@@ -29,4 +29,4 @@ def exec_in_container(
     if resp["ExitCode"] != 0:
         raise Exception(output.decode().strip())
 
-    return output.decode().strip()
+    return output.decode("utf-8", errors="ignore").strip()
