@@ -1,5 +1,7 @@
+from ast import parse
 from fastapi import APIRouter
 
+from services.utils import parse_wg_show
 from services.docker import exec_in_container
 
 router = APIRouter()
@@ -10,5 +12,6 @@ def list_clients():
     """
     Получить список клиентов из AmneziaWG
     """
-    result = exec_in_container("amnezia-awg", "wg show")
+    raw = exec_in_container("amnezia-awg", "wg show")
+    result = parse_wg_show(raw)
     return {"status": "ok", "output": result}
