@@ -1,7 +1,7 @@
 version: "3.9"
 services:
   api:
-    build: ./amneziawg-api
+    build: .
     container_name: amneziawg-api
     network_mode: "host" # или подключи к той же сети, что и amnezia-awg
     volumes:
