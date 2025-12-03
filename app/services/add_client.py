@@ -4,7 +4,7 @@ import os
 import re
 import subprocess
 
-from app.services.docker import exec_in_container
+from services.docker import exec_in_container
 
 
 def add_client(client_name, endpoint, wg_config_file, docker_container):

@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.services.docker import exec_in_container
+from services.docker import exec_in_container
 
 router = APIRouter()
 
