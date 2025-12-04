@@ -6,6 +6,14 @@ import subprocess
 
 from services.docker import exec_in_container
 
+from datetime import datetime
+import json
+import os
+import re
+import subprocess
+
+from services.docker import exec_in_container
+
 
 def add_client(client_name, endpoint, wg_config_file, docker_container):
     # Проверка аргументов
@@ -21,8 +29,9 @@ def add_client(client_name, endpoint, wg_config_file, docker_container):
     os.makedirs(f"{pwd}/users/{client_name}", exist_ok=True)
     os.makedirs(f"{pwd}/files", exist_ok=True)
 
-    key = exec_in_container(docker_container, "wg genkey")
-    psk = exec_in_container(docker_container, "wg genpsk")
+    # Генерация ключей и очистка лишних символов
+    key = exec_in_container(docker_container, "wg genkey").strip()
+    psk = exec_in_container(docker_container, "wg genpsk").strip()
 
     server_conf_path = f"{pwd}/files/server.conf"
     with open(server_conf_path, "w") as f:
@@ -35,16 +44,16 @@ def add_client(client_name, endpoint, wg_config_file, docker_container):
     match = re.search(r"^PrivateKey\s*=\s*(\S+)", server_conf, re.MULTILINE)
     if not match:
         raise ValueError("Не удалось найти PrivateKey в конфиге WireGuard")
-    server_private_key = match.group(1)
+    server_private_key = match.group(1).strip()
 
     server_public_key = exec_in_container(
         docker_container, "wg pubkey", input_data=server_private_key
-    )
+    ).strip()
 
     match_listen_port = re.search(r"ListenPort\s*=\s*(\d+)", server_conf)
     if not match_listen_port:
         raise ValueError("Не удалось найти ListenPort в конфиге WireGuard")
-    listen_port = match_listen_port.group(1)
+    listen_port = match_listen_port.group(1).strip()
 
     additional_params = "\n".join(
         re.findall(r"^(Jc|Jmin|Jmax|S1|S2|H[1-4])\s*=\s*.*", server_conf, re.MULTILINE)
@@ -60,7 +69,9 @@ def add_client(client_name, endpoint, wg_config_file, docker_container):
     client_ip = f"10.8.1.{octet}/32"
     allowed_ips = client_ip
 
-    client_public_key = exec_in_container(docker_container, "wg pubkey", input_data=key)
+    client_public_key = exec_in_container(
+        docker_container, "wg pubkey", input_data=key
+    ).strip()
 
     # Добавляем клиента в server.conf
     with open(server_conf_path, "a") as f:
