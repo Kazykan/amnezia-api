@@ -1,5 +1,6 @@
 from ast import parse
 import os
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException
 
 from services.add_client import add_client
@@ -8,6 +9,10 @@ from services.utils import parse_wg_show
 from services.docker import exec_in_container
 
 router = APIRouter()
+
+
+class ClientRequest(BaseModel):
+    client_name: str
 
 
 @router.get("/clients")
@@ -22,7 +27,7 @@ def list_clients(user=Depends(get_current_user)):
 
 @router.post("/add_client")
 def add_client_route(
-    client_name: str,
+    request: ClientRequest,
     user=Depends(get_current_user),
 ):
     """
@@ -39,7 +44,7 @@ def add_client_route(
             )
 
         client_conf = add_client(
-            client_name=client_name,
+            client_name=request.client_name,
             endpoint=endpoint,
             wg_config_file=wg_config_file,
             docker_container=docker_container,
