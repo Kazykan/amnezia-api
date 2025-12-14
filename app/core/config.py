@@ -1,4 +1,6 @@
 import os
+from dotenv import load_dotenv
+from h11 import CLIENT
 
 
 class Settings:
@@ -13,5 +15,10 @@ class Settings:
     ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
     ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "1234")
 
+
+    ENDPOINT = os.getenv("ENDPOINT")
+    WG_CONFIG_FILE = os.getenv("WG_CONFIG_FILE")
+    DOCKER_CONTAINER = os.getenv("DOCKER_CONTAINER")
+    CLIENTS_TABLE_PATH = os.getenv("CLIENTS_TABLE_PATH", "/opt/amnezia/awg/clientsTable")
 
 settings = Settings()
