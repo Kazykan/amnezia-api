@@ -3,6 +3,7 @@ from urllib.parse import unquote
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException
 
+from services.update_psk import update_clients_psk
 from services.add_client import add_client
 from deps.auth import get_current_user
 from services.utils import parse_wg_show
@@ -64,6 +65,29 @@ def add_client_route(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@router.post("/update_clients_psk")
+def update_clients_psk_route(
+    request: ClientRequest,
+    user=Depends(get_current_user),
+):
+    """
+    Обновить PresharedKey для клиента в AmneziaWG
+    """
+    try:
+        endpoint = settings.ENDPOINT
+        wg_config_file = settings.WG_CONFIG_FILE
+        docker_container = settings.DOCKER_CONTAINER
+
+        if not endpoint or not wg_config_file or not docker_container:
+            raise HTTPException(
+                status_code=500, detail="Не заданы переменные окружения"
+            )
+        
+        update_clients_psk(wg_config_file, docker_container, json_input=[{"client_name": request.client_name}])
+        return {"status": "ok", "message": f"PresharedKey for client '{request.client_name}' updated successfully."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/replace_configs")
 def replace_configs(
