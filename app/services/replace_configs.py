@@ -1,5 +1,5 @@
 import subprocess
-from app.core.config import Settings
+from core.config import settings
 
 def replace_configs_and_restart(wg_conf: str, clients_table: str) -> bool:
     """
@@ -11,9 +11,9 @@ def replace_configs_and_restart(wg_conf: str, clients_table: str) -> bool:
     clients_table (str): путь к локальному clientsTable
     """
 
-    wg_conf_path = Settings.WG_CONFIG_FILE
-    clients_table_path = Settings.CLIENTS_TABLE_PATH
-    docker_container = Settings.DOCKER_CONTAINER
+    wg_conf_path = settings.WG_CONFIG_FILE
+    clients_table_path = settings.CLIENTS_TABLE_PATH
+    docker_container = settings.DOCKER_CONTAINER
 
     print("📤 Копируем новые конфиги внутрь контейнера...")
     try:

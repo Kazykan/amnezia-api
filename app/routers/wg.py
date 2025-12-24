@@ -1,20 +1,24 @@
 import subprocess
-from urllib.parse import unquote
+from services.stats.stats import get_peer_stats, get_wireguard_stats
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException
 
 from services.update_psk import update_clients_psk
 from services.add_client import add_client
 from deps.auth import get_current_user
-from services.utils import parse_wg_show
 from core.config import settings
 
 router = APIRouter()
 
-
 class ClientRequest(BaseModel):
     client_name: str
 
+class ReplacePsk(BaseModel):
+    client_name: str
+    new_preshared_key: str
+
+class ReplacePskRequest(BaseModel):
+    clients: list[ReplacePsk]
 
 
 @router.get("/clients")
@@ -68,7 +72,7 @@ def add_client_route(
 
 @router.post("/update_clients_psk")
 def update_clients_psk_route(
-    request: ClientRequest,
+    request: ReplacePskRequest,
     user=Depends(get_current_user),
 ):
     """
@@ -83,9 +87,16 @@ def update_clients_psk_route(
             raise HTTPException(
                 status_code=500, detail="Не заданы переменные окружения"
             )
+        if not request.clients or len(request.clients) == 0:
+            raise HTTPException(
+                status_code=400, detail="Список клиентов пуст"
+            )
         
-        update_clients_psk(wg_config_file, docker_container, json_input=[{"client_name": request.client_name}])
-        return {"status": "ok", "message": f"PresharedKey for client '{request.client_name}' updated successfully."}
+        # Преобразуем список моделей в список словарей
+        client_dicts = [client.dict() for client in request.clients]
+
+        update_clients_psk(wg_config_file, docker_container, json_input=client_dicts)
+        return {"status": "ok", "message": f"PresharedKey for client '{request.clients}' updated successfully."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -119,3 +130,13 @@ def replace_configs(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/stats/{peer}")
+def stat_one_peer(peer: str):
+    return get_peer_stats(peer)
+
+
+@router.get("/stats")
+def stats():
+    return get_wireguard_stats()
