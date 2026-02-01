@@ -1,4 +1,14 @@
 from pydantic_settings import BaseSettings
+from pydantic import BaseModel
+
+
+class BlockIPRequest(BaseModel):
+    ip: str
+
+
+class BlockClientRequest(BaseModel):
+    client_name: str
+    ip: str
 
 
 class Settings(BaseSettings):

@@ -1,21 +1,25 @@
 import subprocess
+from services.awg_utils import remove_client
+from services.firewall_utils import block_ip, unblock_ip
 from services.stats.stats import get_peer_stats, get_wireguard_stats
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException
 
-from services.update_psk import update_clients_psk
 from services.add_client import add_client
 from deps.auth import get_current_user
-from core.config import settings
+from core.config import BlockClientRequest, BlockIPRequest, settings
 
 router = APIRouter()
+
 
 class ClientRequest(BaseModel):
     client_name: str
 
+
 class ReplacePsk(BaseModel):
     client_name: str
     new_preshared_key: str
+
 
 class ReplacePskRequest(BaseModel):
     clients: list[ReplacePsk]
@@ -32,7 +36,7 @@ def list_clients(user=Depends(get_current_user)):
             shell=True,
             capture_output=True,
             text=True,
-            check=True
+            check=True,
         )
         return {"status": "ok", "output": result.stdout}
     except subprocess.CalledProcessError as e:
@@ -61,7 +65,7 @@ def add_client_route(
             client_name=request.client_name,
             endpoint=endpoint,
             wg_config_file=wg_config_file,
-            docker_container=docker_container,
+            container=docker_container,
         )
 
         return {"status": "ok", "client_conf": client_conf}
@@ -70,35 +74,64 @@ def add_client_route(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/update_clients_psk")
-def update_clients_psk_route(
-    request: ReplacePskRequest,
+@router.post("/block_ip")
+def block_ip_route(request: BlockIPRequest, user=Depends(get_current_user)):
+    """
+    Блокирует клиента по внутреннему IP.
+    """
+    try:
+        block_ip(request.ip)
+        return {"status": "ok", "message": f"IP {request.ip} заблокирован"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/unblock_ip")
+def unblock_ip_route(request: BlockIPRequest, user=Depends(get_current_user)):
+    """
+    Разблокирует клиента по внутреннему IP.
+    """
+    try:
+        unblock_ip(request.ip)
+        return {"status": "ok", "message": f"IP {request.ip} разблокирован"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/remove_client")
+def remove_client_route(
+    request: BlockClientRequest,
     user=Depends(get_current_user),
 ):
     """
-    Обновить PresharedKey для клиента в AmneziaWG
+    Полностью удаляет клиента из AWG:
+    - удаляет блок [Peer]
+    - удаляет запись из clientsTable
+    - снимает блокировку IP (если была)
     """
     try:
-        endpoint = settings.ENDPOINT
         wg_config_file = settings.WG_CONFIG_FILE
         docker_container = settings.DOCKER_CONTAINER
 
-        if not endpoint or not wg_config_file or not docker_container:
+        if not wg_config_file or not docker_container:
             raise HTTPException(
                 status_code=500, detail="Не заданы переменные окружения"
             )
-        if not request.clients or len(request.clients) == 0:
-            raise HTTPException(
-                status_code=400, detail="Список клиентов пуст"
-            )
-        
-        # Преобразуем список моделей в список словарей
-        client_dicts = [client.dict() for client in request.clients]
 
-        update_clients_psk(wg_config_file, docker_container, json_input=client_dicts)
-        return {"status": "ok", "message": f"PresharedKey for client '{request.clients}' updated successfully."}
+        remove_client(
+            client_name=request.ip,  # или request.client_name — зависит от твоей модели
+            wg_config_file=wg_config_file,
+            container=docker_container,
+        )
+
+        return {
+            "status": "ok",
+            "message": f"Client '{request.ip}' removed successfully",
+        }
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/replace_configs")
 def replace_configs(
@@ -123,7 +156,7 @@ def replace_configs(
             client_name=request.client_name,
             endpoint=endpoint,
             wg_config_file=wg_config_file,
-            docker_container=docker_container,
+            container=docker_container,
         )
 
         return {"status": "ok", "client_conf": client_conf}
