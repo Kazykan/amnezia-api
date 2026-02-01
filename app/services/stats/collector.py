@@ -7,7 +7,7 @@ from core.config import settings  # чтобы использовать settings
 
 def collect_once():
     raw = subprocess.check_output(
-        f"docker exec -i {settings.DOCKER_CONTAINER} wg show wg0 dump",
+        f"docker exec -i {settings.DOCKER_CONTAINER} wg show awg0 dump",
             shell=True,
             text=True
             )
