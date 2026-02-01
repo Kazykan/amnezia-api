@@ -1,4 +1,10 @@
 import subprocess
+from core.config import settings
+
+
+def get_docker_base_cmd(container: str) -> str:
+    """Формирует базовую часть команды: /usr/bin/docker exec -i имя_контейнера"""
+    return f"{settings.DOCKER_BIN} exec -i {container}"
 
 
 def docker_exec(container: str, command: str) -> str:
@@ -6,7 +12,7 @@ def docker_exec(container: str, command: str) -> str:
     Выполняет команду внутри Docker-контейнера и возвращает вывод.
     """
     return subprocess.check_output(
-        f"docker exec -i {container} {command}", shell=True, text=True
+        f"{get_docker_base_cmd(container)} {command}", shell=True, text=True
     ).strip()
 
 
@@ -15,7 +21,7 @@ def docker_copy_from(container: str, src: str, dst: str):
     Копирует файл ИЗ контейнера на хост.
     """
     subprocess.run(
-        f"docker exec -i {container} cat {src}",
+        f"{get_docker_base_cmd(container)} cat {src}",
         shell=True,
         check=True,
         text=True,

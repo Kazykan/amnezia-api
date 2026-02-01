@@ -1,4 +1,5 @@
 import subprocess
+from services.docker_utils import get_docker_base_cmd
 from services.awg_utils import remove_client
 from services.firewall_utils import block_ip, unblock_ip
 from services.stats.stats import get_peer_stats, get_wireguard_stats
@@ -32,7 +33,7 @@ def list_clients(user=Depends(get_current_user)):
     """
     try:
         result = subprocess.run(
-            f"docker exec -i {settings.DOCKER_CONTAINER} wg show",
+            f"{get_docker_base_cmd(settings.DOCKER_CONTAINER)} wg show",
             shell=True,
             capture_output=True,
             text=True,

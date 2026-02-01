@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     ENDPOINT: str
     WG_CONFIG_FILE: str
     DOCKER_CONTAINER: str
+    DOCKER_BIN: str = "/usr/bin/docker"
     CLIENTS_TABLE_PATH: str = "/opt/amnezia/awg/clientsTable"
 
     class Config:
