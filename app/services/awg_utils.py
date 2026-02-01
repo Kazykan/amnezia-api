@@ -2,7 +2,7 @@ from datetime import datetime
 import re
 import subprocess
 import json
-from app.services.firewall_utils import unblock_ip
+from services.firewall_utils import unblock_ip
 from services.docker_utils import docker_copy_from, docker_copy_to, docker_exec
 
 
