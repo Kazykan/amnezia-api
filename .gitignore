@@ -6,3 +6,4 @@ __pycache__/
 .idea/
 .vscode/
 app/stats.db
+/users
