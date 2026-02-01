@@ -1,24 +1,28 @@
-import os
-from dotenv import load_dotenv
-from h11 import CLIENT
+from pydantic_settings import BaseSettings
 
 
-class Settings:
-    JWT_SECRET = os.getenv("JWT_SECRET", "CHANGE_ME")
-    JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-    JWT_ACCESS_TTL = int(os.getenv("JWT_ACCESS_TTL", "900"))  # 15 минут
-    JWT_REFRESH_TTL = int(os.getenv("JWT_REFRESH_TTL", "1209600"))  # 14 дней
-    JWT_ISSUER = os.getenv("JWT_ISSUER", "amnezia-api")
-    JWT_AUDIENCE = os.getenv("JWT_AUDIENCE", "amnezia-clients")
+class Settings(BaseSettings):
+    # JWT
+    JWT_SECRET: str
+    JWT_ALGORITHM: str = "HS256"
+    JWT_ACCESS_TTL: int = 900
+    JWT_REFRESH_TTL: int = 1209600
+    JWT_ISSUER: str = "amnezia-api"
+    JWT_AUDIENCE: str = "amnezia-clients"
 
-    # логин и пароль для авторизации
-    ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
-    ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "1234")
+    # Admin
+    ADMIN_USERNAME: str = "admin"
+    ADMIN_PASSWORD: str = "1234"
+
+    # AWG / Docker
+    ENDPOINT: str
+    WG_CONFIG_FILE: str
+    DOCKER_CONTAINER: str
+    CLIENTS_TABLE_PATH: str = "/opt/amnezia/awg/clientsTable"
+
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
 
 
-    ENDPOINT = os.getenv("ENDPOINT")
-    WG_CONFIG_FILE = os.getenv("WG_CONFIG_FILE")
-    DOCKER_CONTAINER = os.getenv("DOCKER_CONTAINER")
-    CLIENTS_TABLE_PATH = os.getenv("CLIENTS_TABLE_PATH", "/opt/amnezia/awg/clientsTable")
-
-settings = Settings()
+settings = Settings()  # type: ignore
