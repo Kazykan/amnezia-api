@@ -10,10 +10,10 @@ from core.config import settings  # чтобы использовать settings
 
 def collect_once():
     raw = subprocess.check_output(
-        f"{get_docker_base_cmd(settings.DOCKER_CONTAINER)} wg show awg0 dump",
-        shell=True,
-        text=True,
-    )
+        f"docker exec -i {settings.DOCKER_CONTAINER} wg show awg0 dump",
+            shell=True,
+            text=True
+            )
 
     peers = parse_wg_dump(raw)
     timestamp = int(time.time())
