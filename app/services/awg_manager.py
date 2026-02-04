@@ -39,32 +39,45 @@ def _normalize_i_params(awg_lines: list[str]) -> list[str]:
 # 1. Извлечение параметров AWG
 # -----------------------------
 def extract_awg_params(server_conf: str) -> tuple[str, str, str]:
+    # PrivateKey
     match = re.search(r"^\s*PrivateKey\s*=\s*(\S+)", server_conf, re.MULTILINE)
     if not match:
         raise RuntimeError("Не найден PrivateKey в конфиге сервера.")
     server_private_key = match.group(1)
 
+    # ListenPort
     listen_port_match = re.search(r"^ListenPort\s*=\s*(\d+)", server_conf, re.MULTILINE)
     listen_port = listen_port_match.group(1) if listen_port_match else "51820"
 
     awg_lines: list[str] = []
+
     for m in re.finditer(
         r"^#?\s*(Jc|Jmin|Jmax|S[1-4]|H[1-4]|I[1-5])\s*=\s*.*",
         server_conf,
         re.MULTILINE,
     ):
-        line = m.group(0).rstrip()
+        raw = m.group(0).strip()
 
-        # Убираем # только в начале строки и только для I‑параметров
-        stripped = line.lstrip()
-        if stripped.startswith("#") and stripped.lstrip("#").lstrip().startswith(
+        # 1. Удаляем закомментированные I‑параметры полностью
+        if raw.startswith("#") and raw.lstrip("#").lstrip().startswith(
             ("I1", "I2", "I3", "I4", "I5")
         ):
-            line = stripped.lstrip("#").lstrip()
+            continue
 
-        awg_lines.append(line)
+        # 2. Убираем # только для J/S/H (если вдруг закомментированы)
+        if raw.startswith("#"):
+            raw = raw.lstrip("#").strip()
 
-    awg_lines = _normalize_i_params(awg_lines)
+        awg_lines.append(raw)
+
+    # 3. Нормализуем I1–I5 (добавляем отсутствующие)
+    existing = {line.split("=")[0].strip() for line in awg_lines}
+
+    for i in range(1, 6):
+        key = f"I{i}"
+        if key not in existing:
+            awg_lines.append(f"{key} =")
+
     awg_params = "\n".join(awg_lines)
     return server_private_key, listen_port, awg_params
 
