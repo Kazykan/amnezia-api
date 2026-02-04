@@ -33,11 +33,10 @@ class Settings(BaseSettings):
 
     # Test mode (отключает авторизацию)
     TEST_MODE: bool = False
-    
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
-    
 
 
 settings = Settings()  # type: ignore

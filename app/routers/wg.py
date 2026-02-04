@@ -1,14 +1,18 @@
 import os
 import subprocess
 import tempfile
-from services.docker_utils import docker_copy_from, docker_copy_to, docker_exec, get_docker_base_cmd
+from services.awg_manager import add_client
+from services.docker_utils import (
+    docker_copy_from,
+    docker_copy_to,
+    docker_exec,
+    get_docker_base_cmd,
+)
 from services.awg_utils import remove_client
 from services.firewall_utils import block_ip, unblock_ip
 from services.stats.stats import get_peer_stats, get_wireguard_stats
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException
-
-from services.add_client import add_client
 from deps.auth import get_current_user
 from core.config import BlockClientRequest, BlockIPRequest, settings
 
@@ -60,26 +64,10 @@ def add_client_route(
     Добавить клиента в AmneziaWG
     """
     try:
-        endpoint = settings.ENDPOINT
-        wg_config_file = settings.WG_CONFIG_FILE
-        docker_container = settings.DOCKER_CONTAINER
 
-        if not endpoint or not wg_config_file or not docker_container:
-            raise HTTPException(
-                status_code=500, detail="Не заданы переменные окружения"
-            )
+        client_conf = add_client(client_name=request.client_name)
 
-        client_conf = add_client(
-            client_name=request.client_name,
-            endpoint=endpoint,
-            wg_config_file=wg_config_file,
-            container=docker_container,
-        )
-
-        with open(client_conf, "r") as f:
-            content = f.read()
-
-        return {"status": "ok", "client_conf": content}
+        return {"status": "ok", "client_conf": client_conf}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
