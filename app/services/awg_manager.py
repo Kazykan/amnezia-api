@@ -15,75 +15,24 @@ from services.firewall_utils import unblock_ip
 
 
 # -----------------------------
-# Вспомогательные функции
+# Загрузка AWG параметров из JSON
 # -----------------------------
-def _normalize_i_params(awg_lines: list[str]) -> list[str]:
-    """
-    Гарантирует, что I1–I5 присутствуют в конфиге клиента,
-    даже если на сервере они были частично или полностью закомментированы/отсутствовали.
-    """
-    result = awg_lines[:]
-    existing = {
-        line.split("=")[0].strip() for line in result if line.strip().startswith("I")
-    }
+def load_awg_params() -> str:
+    params_path = os.path.join(os.getcwd(), "awg_params.json")
 
-    for i in range(1, 5 + 1):
-        key = f"I{i}"
-        if key not in existing:
-            result.append(f"{key} =")
+    if not os.path.exists(params_path):
+        raise RuntimeError("Файл awg_params.json не найден!")
 
-    return result
+    with open(params_path, "r") as f:
+        params = json.load(f)
+
+    # Формируем строки вида "Jc = 4"
+    lines = [f"{k} = {v}" for k, v in params.items()]
+    return "\n".join(lines)
 
 
 # -----------------------------
-# 1. Извлечение параметров AWG
-# -----------------------------
-def extract_awg_params(server_conf: str) -> tuple[str, str, str]:
-    # PrivateKey
-    match = re.search(r"^\s*PrivateKey\s*=\s*(\S+)", server_conf, re.MULTILINE)
-    if not match:
-        raise RuntimeError("Не найден PrivateKey в конфиге сервера.")
-    server_private_key = match.group(1)
-
-    # ListenPort
-    listen_port_match = re.search(r"^ListenPort\s*=\s*(\d+)", server_conf, re.MULTILINE)
-    listen_port = listen_port_match.group(1) if listen_port_match else "51820"
-
-    awg_lines: list[str] = []
-
-    for m in re.finditer(
-        r"^#?\s*(Jc|Jmin|Jmax|S[1-4]|H[1-4]|I[1-5])\s*=\s*.*",
-        server_conf,
-        re.MULTILINE,
-    ):
-        raw = m.group(0).strip()
-
-        # 1. Удаляем закомментированные I‑параметры полностью
-        if raw.startswith("#") and raw.lstrip("#").lstrip().startswith(
-            ("I1", "I2", "I3", "I4", "I5")
-        ):
-            continue
-
-        # 2. Убираем # только для J/S/H (если вдруг закомментированы)
-        if raw.startswith("#"):
-            raw = raw.lstrip("#").strip()
-
-        awg_lines.append(raw)
-
-    # 3. Нормализуем I1–I5 (добавляем отсутствующие)
-    existing = {line.split("=")[0].strip() for line in awg_lines}
-
-    for i in range(1, 6):
-        key = f"I{i}"
-        if key not in existing:
-            awg_lines.append(f"{key} =")
-
-    awg_params = "\n".join(awg_lines)
-    return server_private_key, listen_port, awg_params
-
-
-# -----------------------------
-# 2. Генерация ключей
+# Генерация ключей
 # -----------------------------
 def generate_keys(container: str) -> tuple[str, str, str]:
     key = docker_exec(container, "wg genkey")
@@ -93,7 +42,7 @@ def generate_keys(container: str) -> tuple[str, str, str]:
 
 
 # -----------------------------
-# 3. Чтение server.conf
+# Чтение server.conf
 # -----------------------------
 def read_server_config(container: str, wg_config_file: str, temp_path: str) -> str:
     docker_copy_from(container, wg_config_file, temp_path)
@@ -102,7 +51,7 @@ def read_server_config(container: str, wg_config_file: str, temp_path: str) -> s
 
 
 # -----------------------------
-# 4. Выделение IP
+# Выделение IP
 # -----------------------------
 def allocate_ip(server_conf: str) -> str:
     octet = 2
@@ -114,7 +63,7 @@ def allocate_ip(server_conf: str) -> str:
 
 
 # -----------------------------
-# 5. Обновление server.conf
+# Обновление server.conf
 # -----------------------------
 def update_server_config(temp_path: str, client_name: str, pub: str, psk: str, ip: str):
     peer_block = f"""
@@ -131,7 +80,7 @@ AllowedIPs = {ip}
 
 
 # -----------------------------
-# 6. Создание клиентского .conf
+# Создание клиентского .conf
 # -----------------------------
 def write_client_config(
     path: str,
@@ -161,7 +110,7 @@ PersistentKeepalive = 25
 
 
 # -----------------------------
-# 7. Обновление clientsTable
+# Обновление clientsTable
 # -----------------------------
 def update_clients_table(container: str, pub: str, client_name: str, temp_path: str):
     docker_path = "/opt/amnezia/awg/clientsTable"
@@ -192,7 +141,7 @@ def update_clients_table(container: str, pub: str, client_name: str, temp_path: 
 
 
 # -----------------------------
-# 8. Валидация клиента
+# Валидация клиента
 # -----------------------------
 def validate_client_config(container: str, client_conf_path: str, wg_config_file: str):
     with open(client_conf_path, "r") as f:
@@ -220,12 +169,6 @@ def validate_client_config(container: str, client_conf_path: str, wg_config_file
     except Exception:
         raise RuntimeError("Некорректный приватный ключ клиента")
 
-    pub_match = re.search(r"PublicKey\s*=\s*(\S+)", content)
-    if not pub_match:
-        raise RuntimeError(
-            "Не удалось извлечь PublicKey сервера из клиентского конфига"
-        )
-
     try:
         docker_exec(container, f"wg-quick strip {wg_config_file}")
     except Exception:
@@ -235,7 +178,7 @@ def validate_client_config(container: str, client_conf_path: str, wg_config_file
 
 
 # -----------------------------
-# 9. Основная функция add_client
+# Основная функция add_client
 # -----------------------------
 def add_client(client_name: str) -> str:
     container = settings.DOCKER_CONTAINER
@@ -255,8 +198,11 @@ def add_client(client_name: str) -> str:
 
     server_conf = read_server_config(container, wg_config_file, temp_conf)
 
-    server_priv, port, awg_params = extract_awg_params(server_conf)
+    # Загружаем AWG параметры из JSON
+    awg_params = load_awg_params()
 
+    server_priv_match = re.search(r"PrivateKey\s*=\s*(\S+)", server_conf)
+    server_priv = server_priv_match.group(1)
     server_pub = docker_exec(container, f"sh -c \"echo '{server_priv}' | wg pubkey\"")
 
     ip = allocate_ip(server_conf)
@@ -268,7 +214,14 @@ def add_client(client_name: str) -> str:
 
     client_conf_path = os.path.join(client_dir, f"{client_name}.conf")
     write_client_config(
-        client_conf_path, ip, key, psk, server_pub, endpoint, port, awg_params
+        client_conf_path,
+        ip,
+        key,
+        psk,
+        server_pub,
+        endpoint,
+        port="33042",
+        awg_params=awg_params,
     )
 
     validate_client_config(container, client_conf_path, wg_config_file)
@@ -276,13 +229,11 @@ def add_client(client_name: str) -> str:
     update_clients_table(container, pub, client_name, temp_table)
 
     with open(client_conf_path, "r") as f:
-        content = f.read()
-
-    return content
+        return f.read()
 
 
 # -----------------------------
-# 10. Вспомогательная функция: найти IP клиента
+# Удаление клиента
 # -----------------------------
 def extract_client_ip(server_conf: str, client_name: str) -> str | None:
     lines = server_conf.splitlines()
@@ -302,9 +253,6 @@ def extract_client_ip(server_conf: str, client_name: str) -> str | None:
     return None
 
 
-# -----------------------------
-# 11. Удаление клиента
-# -----------------------------
 def remove_client(client_name: str):
     container = settings.DOCKER_CONTAINER
     wg_config_file = settings.WG_CONFIG_FILE
@@ -313,25 +261,20 @@ def remove_client(client_name: str):
     temp_table = "/tmp/awg_clients_table.json"
     docker_table_path = "/opt/amnezia/awg/clientsTable"
 
-    print(f"[awg] 🗑 Удаление клиента: {client_name}")
-
     docker_copy_from(container, wg_config_file, temp_conf)
 
     with open(temp_conf, "r") as f:
         server_conf = f.read()
 
     client_ip = extract_client_ip(server_conf, client_name)
-    print(f"[awg] IP клиента: {client_ip}")
 
     lines = server_conf.splitlines(keepends=True)
     new_lines = []
     skip = False
-    removed = False
 
     for line in lines:
         if line.strip() == f"# {client_name}":
             skip = True
-            removed = True
             continue
 
         if skip and line.strip().startswith("[Peer]"):
@@ -341,9 +284,6 @@ def remove_client(client_name: str):
         if not skip:
             new_lines.append(line)
 
-    if not removed:
-        print(f"[awg] ⚠ Клиент {client_name} не найден в server.conf")
-
     with open(temp_conf, "w") as f:
         f.writelines(new_lines)
 
@@ -352,27 +292,16 @@ def remove_client(client_name: str):
     with open(temp_table, "r") as f:
         table = json.load(f)
 
-    new_table = [c for c in table if c["userData"]["clientName"] != client_name]
-
-    if len(new_table) == len(table):
-        print(f"[awg] ⚠ Клиент {client_name} отсутствовал в clientsTable")
+    table = [c for c in table if c["userData"]["clientName"] != client_name]
 
     with open(temp_table, "w") as f:
-        json.dump(new_table, f, indent=4)
+        json.dump(table, f, indent=4)
 
     if client_ip:
-        print(f"[awg] 🔓 Снятие блокировки IP {client_ip}")
         unblock_ip(client_ip)
 
     docker_copy_to(container, temp_conf, wg_config_file)
     docker_copy_to(container, temp_table, docker_table_path)
 
-    print("[awg] 🔄 Перезапуск AWG")
-    try:
-        docker_exec(container, f"sh -c 'wg-quick down {wg_config_file} || true'")
-        docker_exec(container, f"sh -c 'wg-quick up {wg_config_file}'")
-        print("[awg] ✔ AWG успешно перезапущен")
-    except Exception:
-        print("[awg] ⚠ Не удалось перезапустить wg-quick")
-
-    print(f"[awg] ❌ Клиент {client_name} полностью удалён.")
+    docker_exec(container, f"sh -c 'wg-quick down {wg_config_file} || true'")
+    docker_exec(container, f"sh-quick up {wg_config_file}'")
