@@ -76,7 +76,10 @@ def add_client_route(
             container=docker_container,
         )
 
-        return {"status": "ok", "client_conf": client_conf}
+        with open(client_conf, "r") as f:
+            content = f.read()
+
+        return {"status": "ok", "client_conf": content}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

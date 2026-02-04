@@ -44,7 +44,8 @@ def extract_awg_params(server_conf: str) -> tuple[str, str, str]:
 
     # AWG 2.0 параметры
     awg_params = "\n".join(
-        re.findall(
+        m.group(0)
+        for m in re.finditer(
             r"^#?\s*(Jc|Jmin|Jmax|S[1-4]|H[1-4]|I[1-5])\s*=\s*.*",
             server_conf,
             re.MULTILINE,
