@@ -156,7 +156,6 @@ def validate_client_config(container: str, client_conf_path: str, wg_config_file
     with open(client_conf_path, "r") as f:
         content = f.read()
 
-    # 1. Проверяем обязательные поля
     required = [
         "[Interface]",
         "PrivateKey",
@@ -169,27 +168,26 @@ def validate_client_config(container: str, client_conf_path: str, wg_config_file
         if r not in content:
             raise RuntimeError(f"Некорректный конфиг клиента: отсутствует {r}")
 
-    # 2. Извлекаем приватный ключ
+    # Проверяем приватный ключ клиента
     priv_match = re.search(r"PrivateKey\s*=\s*(\S+)", content)
     if not priv_match:
         raise RuntimeError("Не удалось извлечь PrivateKey из клиентского конфига")
     priv = priv_match.group(1)
 
-    # 3. Извлекаем публичный ключ из конфига
+    # Проверяем, что приватный ключ клиента валиден
+    try:
+        docker_exec(container, f"sh -c \"echo '{priv}' | wg pubkey\"")
+    except Exception:
+        raise RuntimeError("Некорректный приватный ключ клиента")
+
+    # Проверяем публичный ключ сервера (но не сравниваем с клиентским)
     pub_match = re.search(r"PublicKey\s*=\s*(\S+)", content)
     if not pub_match:
-        raise RuntimeError("Не удалось извлечь PublicKey из клиентского конфига")
-    pub_conf = pub_match.group(1)
-
-    # 4. Генерируем публичный ключ из приватного
-    pub_calc = docker_exec(container, f"sh -c \"echo '{priv}' | wg pubkey\"")
-
-    if pub_calc != pub_conf:
         raise RuntimeError(
-            "Публичный ключ клиента не соответствует приватному — конфиг повреждён"
+            "Не удалось извлечь PublicKey сервера из клиентского конфига"
         )
 
-    # 5. Проверяем валидность server.conf
+    # Проверяем валидность server.conf
     try:
         docker_exec(container, f"wg-quick strip {wg_config_file}")
     except Exception:
